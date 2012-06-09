@@ -1,2 +1,2 @@
 #!/bin/sh
-rst2html2 selectors3-parser.txt out.html
+rst2html2 README.rst out.html
