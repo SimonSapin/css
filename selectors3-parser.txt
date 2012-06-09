@@ -1,0 +1,342 @@
+A Selectors3 parser based on Syntax3
+####################################
+
+First revision.
+Simon Sapin, 2012-06-09
+
+Introduction
+============
+
+This is an attempt at a formal specification for Selectors Level 3
+parser based on the css3-syntax state-machine (in its 2012-06-09
+editor’s draft) rather than the CSS 2.1 Core Grammar.
+
+It is proposal for replacing the grammar in section 10 of the Selectors
+spec: http://www.w3.org/TR/css3-selectors/#w3cselgrammar
+
+The parser in this document accepts a super-set of allowed Level 3
+selectors: the list of allow pseudo-elements and pseudo-classes is
+deliberately not included. This allows eg. css3-lists to define the
+`::marker` pseudo-element without changing the "main" parser.
+
+A functional pseudo-class is represented by its name and unparsed list
+of arguments. The rules for parsing the arguments are defined
+separately, case-by-case.
+
+All strings are Unicode codepoints, unless otherwise specified.
+
+"The original string" is the input to the tokenizer. It is in
+CSS syntax and can thus contain comments or backslash-escapes. These
+are resolved by the tokenizer.
+
+
+Input
+=====
+
+The input for this parser is assumed to have already gone through the
+tokenizer and tree construction steps for Syntax3. It matches what
+Syntax3 puts in the selector of a style rule. An additional procedure
+should probably be added to Syntax3 for the tree construction of a
+stand-alone selector, as found for example in getElementsBySelector().
+
+The input is a sequence of "regrouped tokens".
+(TODO: bikeshed the name. Maybe something with 'tree'?)
+Regrouped tokens are close to but slightly higher-level than the tokens
+produced by the Syntax3 tokenizer.
+
+A regrouped token is either:
+
+    * An identifier, at-keyword, hash, string, url, delim, number,
+      percentage, dimension, unicode-range, whitespace, colon or
+      semicolon token.
+    * A block
+    * A function
+
+Blocks have:
+
+    * a type: '{', '[' or '('
+    * content: a sequence of regrouped tokens. Does not include the
+      opening or closing tokens for this block.
+
+Functions have:
+
+    * a name: a string
+    * arguments (content): a sequence of regrouped tokens.
+      Does not include the opening or closing parentheses.
+
+Regrouped tokens are never function, bad-string, bad-url, cdo, cdc,
+open-brace, close-brace, open-paren, close-paren, open-bracket
+or close-bracket tokens. These either trigger a parse error
+(in which case there is no selector to parse) or are turned into
+regrouped blocks or functions.
+
+Although they are never allowed in Level 3 selectors, some tokens
+like url and unicode-range are included to keep this definition
+as wide as possible for future levels.
+
+Side note:
+    An explicitly-defined concept like regrouped tokens can be useful
+    as Syntax3’s output not only for selectors, but also for property
+    values and unparsed at-rules.
+
+
+Namespaces
+----------
+
+In addition to the regrouped tokens, the input for this parser is made
+of a (possibly empty) mapping of namespace prefixes to URIs and an
+optional URI for the default namespace.
+
+In CSS, namespace are declared with @namespace rules.
+See http://www.w3.org/TR/css3-namespace/
+
+
+Output
+======
+
+If the selector is valid, the output of this parser is a tree
+of objects. The root of the tree is always a group of selector.
+
+A group of selector object is a list of one ore more simple selectors.
+
+A selector object is made of:
+
+    * A combined selector or sequence of simple selectors
+    * An optional pseudo-element name (a string)
+
+A combined selector is made of:
+
+    * On its left: a combined selector or sequence of simple selectors
+    * A combinator: one of descendant, child, adjacent sibling or
+      general sibling
+    * On its right: a sequence of simple selectors
+
+A simple selector is either a type selector, an universal selector,
+a class selector, an attribute selector, a simple pseudo-class,
+a functional pseudo-class or a negation pseudo-class.
+
+A sequence of simple selectors must starts with a type selector or
+an universal selector. A type selector or universal selectors
+must be first in a sequence of simple selectors.
+An implicit universal selector in the original string will be explicit
+in the parsed sequence of simple selectors.
+
+A namespace object are made of:
+
+    * A namespace "type": one of 'URI', 'any' or 'none'
+    * If the type is 'URI', the URI (a string)
+
+`ns|E` in the original string becomes 'URI' (or gives a parse error
+if the prefix is not declared), `*|E` becomes 'any', `|E` becomes
+'none', and `E` becomes 'URI' if a default namespace is declared,
+'any' otherwise.
+
+Type selectors are made of:
+
+    * A namespace object
+    * A type name (a string)
+
+Universal selectors are made of:
+
+    * A namespace object
+
+Class selectors are made of:
+
+    * A class name (a string)
+
+ID selectors are made of:
+
+    * An identifier (a string)
+
+Attribute selectors are made of:
+
+    * A namespace object
+    * An attribute name (a string)
+    * An operator: one of 'exists', '=', '~=', '|=', '^=', '$=' or '*='
+    * If the operator is not 'exists', a value (a string)
+
+Simple pseudo-classes are made of:
+
+    * A name (a string)
+
+Functional pseudo-classes are made of:
+
+    * A name (a string)
+    * Its arguments. The shape/type is defined for each pseudo-class.
+      Level 3 pseudo-classes are defined at the end of this document.
+
+Negation pseudo-classes are made of:
+
+    * A negated selector. (a simple selector that is not a negation)
+
+Issue 1:
+    These definitions encode the constraint that a pseudo-element
+    can only be last. Should they be more general, in case future
+    levels want to relax the constraint?
+
+
+Invalid selectors
+-----------------
+
+If at any point an invalid selector is encountered, the parser is
+aborted and there is no output/result tree. It is up to the host
+language to define what happens to invalid selectors.
+
+For CSS style rules, it up to the Syntax3 tree construction to make
+sure that an invalid selector and its declaration block are completely
+consumed and ignored.
+
+
+Selector parsing
+================
+
+Just like "raw" tokens, sequences of regrouped tokens can be consumed
+item-by-item with an implicit iterator/index. When the end of a sequence
+has been reached, consuming it further yields eof tokens.
+
+Note that a eof token while consuming the content of a block or
+a function marks the end of the block or function, not the end of
+the selector. Likewise, eof while consuming the input sequence
+marks the end of the selector, not that of any larger unit (like
+a CSS stylesheet) where the selector was read.
+
+
+TODO: the actual state-machine-based parser.
+
+
+Parsing of functional pseudo-classes arguments
+==============================================
+
+Each functional pseudo-class has a specialized parser for its arguments.
+These parsers can either make the selector invalid or return the
+arguments in a higher-level form.
+
+The input is the arguments of the function object that represents
+the pseudo-class, with whitespace tokens removed at the start and end
+of the sequence. It is a sequence of regrouped tokens.
+
+:lang()
+-------
+
+Output: a string
+
+If there is exactly one argument and that argument is an ident token,
+return the token’s value. Otherwise, the selector is invalid.
+
+Issue 2:
+    Are string tokens allowed instead of ident?
+
+
+:nth-child(), :nth-last-child(), :nth-of-type() and :nth-last-of-type()
+-----------------------------------------------------------------------
+
+Output: a pair (a, b) of integers
+Internal state: a, b (integers), negative-b (flag, initially unset)
+
+This should match the grammar defined in the current level 3 spec:
+
+nth
+  : S* [ ['-'|'+']? INTEGER? {N} [ S* ['-'|'+'] S* INTEGER ]? |
+         ['-'|'+']? INTEGER | {O}{D}{D} | {E}{V}{E}{N} ] S*
+  ;
+
+Issue 3:
+    Whitespace is allowed on either side of b’s sign, but not between
+    a and its sign (if any). Is this what we want?
+    This seems consistent with the "whitespace" examples in the spec.
+
+Consume the arguments one-by-one, and start in nth-start mode.
+
+nth-start mode
+..............
+
+Consume the next argument.
+
+ident token with the value 'even'
+    Set a to 2, b to 0. Switch to the nth-end mode.
+
+ident token with the value 'odd'
+    Set a to 2, b to 1. Switch to the nth-end mode.
+
+ident token with the value 'n'
+    Set a to 1. Switch to the nth-after-n mode.
+
+ident token with the value '-n'
+    Set a to -1. Switch to the nth-after-n mode.
+
+ident token with the value 'n-'
+    Set a to 1. Set the negative-b flag. Switch to the
+    nth-after-b-sign mode.
+
+ident token with the value '-n-'
+    Set a to -1. Set the negative-b flag. Switch to the
+    nth-after-b-sign mode.
+
+dimension token with the integer flag and the unit 'n'
+    Set a to the token’s value. Switch to the nth-after-n mode.
+
+dimension token with the integer flag and the unit 'n-'
+    Set a to the token’s value. Set the negative-b flag. Switch to the
+    nth-after-b-sign mode.
+
+dimension token with the integer flag and unit that matches 'n-[0-9]+'
+    Set a to the token’s value. Set b to the token’s unit parsed
+    as a decimal integer, after removing the initial 'n'.
+    Switch to the nth-end mode.
+
+number token with the integer flag
+    Set a to 0. Set b to the token’s value. Switch to the nth-end mode.
+
+anything else
+    The selector is invalid.
+
+nth-after-n mode
+................
+
+Consume the next argument.
+
+eof token
+    Set b to 0. Return (a, b)
+
+whitespace token
+    Do nothing. Remain in this mode.
+
+delim token with the value '+'
+    Switch to the nth-after-b-sign mode.
+
+delim token with the value '-'
+    Set the negative-b flag. Switch to the nth-after-b-sign mode.
+
+number token with the integer flag
+    Set b to the token’s value. Switch to the nth-end mode.
+
+anything else
+    The selector is invalid.
+
+nth-after-b-sign mode
+.....................
+
+Consume the next argument.
+
+whitespace token
+    Do nothing. Remain in this mode.
+
+number token with the integer flag and a representation that does not
+start with a '-' or a '+'
+    Set b to the opposite of the token’s value if negative-b is set,
+    to the token’s value otherwise.
+    Switch to the nth-end mode.
+
+anything else
+    The selector is invalid.
+
+nth-end mode
+............
+
+Consume the next argument.
+
+eof token
+    Return (a, b)
+
+anything else
+    The selector is invalid
