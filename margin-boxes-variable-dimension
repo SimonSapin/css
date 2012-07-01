@@ -100,7 +100,7 @@ Algorithm:
 
      * the containing block’s width
      * minus the outer width of the other box.
-     * minus the box’s margins, borders and padding
+     * minus the box’s (A or C) margins, borders and padding
 
 * Otherwise (if B *is* instantiated)
 
@@ -111,6 +111,7 @@ Algorithm:
 
        * the containing block’s width
        * minus the greater of A’s and C’s outer widths
+       * minus the box’s (B) margins, borders and padding
 
      * Otherwise
 
