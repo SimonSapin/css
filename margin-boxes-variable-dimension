@@ -1,0 +1,160 @@
+Replacing 6.3.2 Variable Dimension Computation Rules
+####################################################
+
+First revision.
+Simon Sapin, 2012-06-11
+
+Introduction
+============
+
+I argue that the current rules in section 6.3.2[1] of the current Editor’s
+Draft for css3-page are unreasonably hard to implement, under-specified
+and not even sufficient for the desired behavior. More background was posted
+on www-style[2].
+
+[1] http://dev.w3.org/csswg/css3-page/#margin-constraints
+[2] http://lists.w3.org/Archives/Public/www-style/2012Jun/0184.html
+
+
+Proposed replacement
+====================
+
+Even without the quadratic stuff, what the current spec tries to do with
+'auto' margins is still very complicated. 9 properties that may or may
+not be 'auto' yield a lot of combinations.
+
+Therefore, I suggest the following rule:
+
+  | If the margin-left or margin-right property of any of the
+  | three boxes computes to 'auto', the used value is zero.
+
+It *is* a loss a functionality, but I think the trade-off is worth it.
+This change is essential in my proposal, which is still nowhere near
+Fixed Dimension Computation Rules’s simplicity.
+
+Remember that this is three simple boxes with (most often) very small
+texts. Any fancy layout is probably overkill.
+
+Other than that, a side effect is that margin boxes with 'width: auto'
+will never grow larger than their preferred width. I don’t know if this
+is a problem; authors can always use percentage widths if 'auto' does
+not give the desired behavior.
+
+"is instantiated" is used with reference to 6.2 instead of "is not empty
+or if its computed width is not ‘auto’".
+
+Indentation matters in the algorithm below. I don’t know if there is
+a way to reduce nesting while keeping the text clear enough.
+
+===== Start of proposed text =====
+
+6.3.2. Margin Box Variable Dimension Computation Rules
+
+The following rules apply to ‘top-left’, ‘top-center’ and ‘top-right’
+margin boxes, which are referred to in this section as A, B, and C,
+respectively.
+
+If the margin-left or margin-right property of any of the three boxes
+computes to 'auto', the used value is zero.
+
+The width of the containing block is known at this point, so percentages
+can be resolved. Only the used values for 'auto' widths remain to
+be determined.
+
+Definitions:
+
+*preferred outer width* of a box
+     If width is 'auto', the preferred width plus left and right margins,
+     borders and padding.
+     Otherwise, the outer width.
+
+*preferred minimum outer width* of a box
+     If width is 'auto', the preferred minimum width plus left and right
+     margins, borders and padding.
+     Otherwise, the outer width.
+
+*overall available width*
+     the width of the containing block minus the left and right margins,
+     borders and padding of all three boxes.
+
+Algorithm:
+
+* If B is not <a href="#populating-margin-boxes">instantiated</a>
+
+   * If both A’s and C’s widths are 'auto'
+
+     * If the sum of their preferred minimum outer widths is greater
+       than the width of the containing block, their used width are
+       their respective preferred minimum widths.
+
+     * Otherwise, if the sum of their preferred outer widths is less
+       than the width of the containing block, their used width are
+       their respective preferred widths.
+
+     * Otherwise, their used widths are chosen to add up to the
+       overall available width, proportionally to their respective
+       preferred width.
+
+   * Otherwise, if one of A’s or C’s width is 'auto', its used width is
+     the "shrink-to-fit" width with the available width set to:
+
+     * the containing block’s width
+     * minus the outer width of the other box.
+     * minus the box’s margins, borders and padding
+
+* Otherwise (if B *is* instantiated)
+
+   * If B’s width is 'auto'
+
+     * If neither A’s width or C’s width are 'auto', B’s used width is
+       the "shrink-to-fit" width with the available width set to:
+
+       * the containing block’s width
+       * minus the greater of A’s and C’s outer widths
+
+     * Otherwise
+
+       * Define AC-minimum as the greater of A’s and C’s preferred
+         minimum outer width, and AC-preferred as the greater of their
+         preferred outer width.
+
+       * If B’s preferred minimum outer width plus AC-minimum is greater
+         than the width of the containing block, the used width for B
+         is its preferred minimum width.
+
+       * Otherwise, if B’s preferred outer width plus AC-preferred is
+         less than the width of the containing block, the used width
+         for B is its preferred minimum width.
+
+       * Otherwise, set any 'auto' width proportionally to the
+         corresponding preferred width so that they add up to the
+         overall available width minus any non-'auto' width.
+
+   * If A’s width or C’s width or both are still 'auto', their
+     respective used width are the "shrink-to-fit" width with the
+     available width set to:
+
+     * half of the containing block’s width
+     * minus half of the outer width of B.
+     * minus the box’s (A or C) margins, borders and padding
+
+
+Now that all three boxes have a determined outer width, they are
+positioned so that:
+
+* The left outer edge of A is flush with the left edge of the
+   containing block
+* The outer area of B is centered in the containing block.
+* The right outer edge of C is flush with the right edge of the
+   containing block.
+
+Although the rules above try to avoid it, the boxes may end up
+overlapping each other.
+
+===== End of proposed text =====
+
+The note on negative widths and what follows (how the rules translate
+for margin boxes on the bottom, left and right sides) are kept as-is.
+
+A, B and C could be replaced by "the {left,center,right} box" in the
+text, whichever is a better style.
