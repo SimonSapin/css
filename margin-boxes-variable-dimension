@@ -40,9 +40,6 @@ will never grow larger than their preferred width. I don’t know if this
 is a problem; authors can always use percentage widths if 'auto' does
 not give the desired behavior.
 
-"is instantiated" is used with reference to 6.2 instead of "is not empty
-or if its computed width is not ‘auto’".
-
 Indentation matters in the algorithm below. I don’t know if there is
 a way to reduce nesting while keeping the text clear enough.
 
@@ -79,7 +76,7 @@ Definitions:
 
 Algorithm:
 
-* If B is not <a href="#populating-margin-boxes">instantiated</a>
+* If B is not <a href="#populating-margin-boxes">generated</a>
 
    * If both A’s and C’s widths are 'auto'
 
@@ -102,7 +99,7 @@ Algorithm:
      * minus the outer width of the other box.
      * minus the box’s (A or C) margins, borders and padding
 
-* Otherwise (if B *is* instantiated)
+* Otherwise (if B *is* generated)
 
    * If B’s width is 'auto'
 
