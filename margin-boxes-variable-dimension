@@ -12,7 +12,7 @@ Draft for css3-page are unreasonably hard to implement, under-specified
 and not even sufficient for the desired behavior. More background was posted
 on www-style[2].
 
-[1] http://dev.w3.org/csswg/css3-page/#margin-constraints
+[1] http://dev.w3.org/csswg/css3-page/#margin-dimension
 [2] http://lists.w3.org/Archives/Public/www-style/2012Jun/0184.html
 
 
